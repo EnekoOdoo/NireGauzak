@@ -248,7 +248,7 @@
         const reportOptions = document.getElementById('report-options');
         const exportCsvBtn = document.getElementById('export-csv-btn');
         const downloadZipBtn = document.getElementById('download-zip-btn');
-        const emailReportBtn = document.getElementById('email-report-btn');
+        const emailReportBtn = document = document.getElementById('email-report-btn');
 
         const authEmailInput = document.getElementById('auth-email');
         const authPasswordInput = document.getElementById('auth-password');
@@ -260,12 +260,12 @@
         // Gestor de autenticación
         function setupAuthListener() {
             onAuthStateChanged(auth, (user) => {
-                loadingMessage.style.display = 'none'; // Ocultar el mensaje de carga en cualquier caso
+                loadingMessage.style.display = 'none';
                 if (user) {
                     // El usuario ha iniciado sesión
                     userId = user.uid;
                     authReady = true;
-                    userInfo.textContent = `ID de Usuario: ${user.email}`; // Mostrar email en lugar del UID
+                    userInfo.textContent = `ID de Usuario: ${user.email}`;
                     logoutBtn.classList.remove('hidden');
                     appContainer.classList.remove('hidden');
                     authContainer.classList.add('hidden');
@@ -452,7 +452,6 @@
             };
 
             confirmYesBtn.addEventListener('click', handleYes);
-            confirmNoBtn.addEventListener('click', handleNo);
         }
 
         // Listener en tiempo real para los gastos del viaje seleccionado
