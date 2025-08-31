@@ -25,7 +25,10 @@
     <!-- Contenedor Principal de la App -->
     <div id="app-container" class="hidden w-full max-w-lg bg-white rounded-xl shadow-lg p-6 space-y-6">
         <h1 class="text-2xl font-bold text-gray-800 text-center">Gestión de Gastos</h1>
-        <p id="user-info" class="text-sm text-gray-500 text-center"></p>
+        <div class="flex justify-between items-center text-sm text-gray-500">
+            <p id="user-info"></p>
+            <button id="logout-btn" class="text-red-500 font-semibold hover:underline hidden">Cerrar Sesión</button>
+        </div>
 
         <!-- Contenedor de Viajes -->
         <div id="trips-container" class="space-y-4">
@@ -139,13 +142,38 @@
                     </button>
                 </div>
                 <p class="text-xs text-gray-500 mt-2">
-                    Nota: La descarga de fotos es una simulación. En una aplicación completa, esto descargaría las imágenes reales. El correo se abrirá en tu cliente de correo.
+                    Nota: La descarga de fotos es una simulación. En una aplicación completa, esto descargarla las imágenes reales. El correo se abrirá en tu cliente de correo.
                 </p>
             </div>
         </div>
 
         <!-- Mensaje de la App -->
         <div id="app-message" class="text-sm text-center font-medium p-2 rounded-md transition-all duration-300"></div>
+    </div>
+    
+    <!-- Contenedor de Autenticación -->
+    <div id="auth-container" class="w-full max-w-sm bg-white rounded-xl shadow-lg p-6 space-y-6 hidden">
+        <h1 class="text-2xl font-bold text-gray-800 text-center">Accede a tus Gastos</h1>
+        <p class="text-sm text-gray-500 text-center">Regístrate o inicia sesión para acceder a tu cuenta personal.</p>
+
+        <form id="auth-form" class="space-y-4">
+            <div>
+                <label for="auth-email" class="block text-sm font-medium text-gray-700">Correo Electrónico</label>
+                <input type="email" id="auth-email" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+            </div>
+            <div>
+                <label for="auth-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                <input type="password" id="auth-password" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+            </div>
+            <div class="flex flex-col space-y-2">
+                <button type="button" id="signup-btn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md shadow-md hover:bg-indigo-700 transition-colors">
+                    Crear Cuenta
+                </button>
+                <button type="button" id="signin-btn" class="w-full bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-md shadow-md hover:bg-gray-300 transition-colors">
+                    Iniciar Sesión
+                </button>
+            </div>
+        </form>
     </div>
 
     <!-- Modal de confirmación personalizado -->
@@ -163,8 +191,8 @@
     <script src="https://unpkg.com/downloadjs@1.4.7/download.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 
         // Configuración de la base de datos
@@ -187,7 +215,9 @@
         // Elementos de la UI
         const loadingMessage = document.getElementById('loading-message');
         const appContainer = document.getElementById('app-container');
+        const authContainer = document.getElementById('auth-container');
         const userInfo = document.getElementById('user-info');
+        const logoutBtn = document.getElementById('logout-btn');
         const tripsContainer = document.getElementById('trips-container');
         const expensesContainer = document.getElementById('expenses-container');
         const tripsList = document.getElementById('trips-list');
@@ -220,28 +250,67 @@
         const downloadZipBtn = document.getElementById('download-zip-btn');
         const emailReportBtn = document.getElementById('email-report-btn');
 
+        const authEmailInput = document.getElementById('auth-email');
+        const authPasswordInput = document.getElementById('auth-password');
+        const signupBtn = document.getElementById('signup-btn');
+        const signinBtn = document.getElementById('signin-btn');
+
         let uploadedFile = null;
 
-        // Autenticación de usuario
-        async function authenticateUser() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
-                    userId = userCredential.user.uid;
-                } else {
-                    const userCredential = await signInAnonymously(auth);
-                    userId = userCredential.user.uid;
-                }
-                userInfo.textContent = `ID de Usuario: ${userId}`;
+        // Listener del estado de autenticación
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // El usuario ha iniciado sesión
+                userId = user.uid;
                 authReady = true;
+                userInfo.textContent = `ID de Usuario: ${userId.substring(0, 8)}...`;
+                logoutBtn.classList.remove('hidden');
                 loadingMessage.style.display = 'none';
-                appContainer.style.display = 'block';
+                appContainer.classList.remove('hidden');
+                authContainer.classList.add('hidden');
                 setupTripsListener();
-            } catch (error) {
-                console.error("Error de autenticación:", error);
-                showMessage('Error al iniciar sesión. Por favor, recarga la página.', 'error');
+            } else {
+                // El usuario ha cerrado sesión o no ha iniciado sesión
+                userId = null;
+                authReady = false;
+                logoutBtn.classList.add('hidden');
+                loadingMessage.style.display = 'none';
+                appContainer.classList.add('hidden');
+                authContainer.classList.remove('hidden');
+                if (unsubscribeTrips) unsubscribeTrips();
+                if (unsubscribeExpenses) unsubscribeExpenses();
             }
-        }
+        });
+
+        // Eventos de autenticación
+        signupBtn.addEventListener('click', async () => {
+            try {
+                const email = authEmailInput.value;
+                const password = authPasswordInput.value;
+                await createUserWithEmailAndPassword(auth, email, password);
+                showMessage('Cuenta creada con éxito. ¡Ya puedes acceder a tus viajes!', 'success');
+            } catch (error) {
+                console.error("Error al registrarse:", error);
+                showMessage('Error al crear la cuenta. Inténtalo de nuevo.', 'error');
+            }
+        });
+
+        signinBtn.addEventListener('click', async () => {
+            try {
+                const email = authEmailInput.value;
+                const password = authPasswordInput.value;
+                await signInWithEmailAndPassword(auth, email, password);
+                showMessage('¡Bienvenido! Sesión iniciada.', 'success');
+            } catch (error) {
+                console.error("Error al iniciar sesión:", error);
+                showMessage('Error al iniciar sesión. Comprueba tus datos.', 'error');
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+            showMessage('Sesión cerrada correctamente.', 'success');
+        });
 
         // Listener para la foto del ticket
         receiptPhotoInput.addEventListener('change', (e) => {
@@ -585,9 +654,6 @@
                 appMessage.classList.remove('bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700', 'bg-yellow-100', 'text-yellow-700');
             }, 3000);
         }
-
-        // Iniciar la aplicación
-        window.onload = authenticateUser;
     </script>
 </body>
 </html>
