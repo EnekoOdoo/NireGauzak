@@ -188,7 +188,6 @@
     </div>
 
     <!-- Firebase SDKs -->
-    <script src="https://unpkg.com/downloadjs@1.4.7/download.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -595,6 +594,19 @@
             submitExpenseBtn.textContent = 'Guardar Gasto';
         });
 
+        // Función personalizada para descargar archivos
+        function downloadFile(data, filename, mimeType) {
+            const blob = new Blob([data], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
         // Función para exportar los gastos a CSV
         exportCsvBtn.addEventListener('click', () => {
             if (allExpenses.length === 0) {
@@ -617,7 +629,7 @@
                 ...rows.map(row => row.join(","))
             ].join("\n");
 
-            download(csvContent, `${selectedTripName}_gastos.csv`, "text/csv");
+            downloadFile(csvContent, `${selectedTripName}_gastos.csv`, "text/csv");
             showMessage('Archivo CSV descargado con éxito.', 'success');
         });
 
@@ -626,8 +638,7 @@
             // Dado que no podemos manejar subidas de archivos en este entorno,
             // esta función simula la descarga de un archivo ZIP.
             const mockZipContent = `Esto es un archivo ZIP simulado para el viaje "${selectedTripName}".`;
-            const mockBlob = new Blob([mockZipContent], { type: 'application/zip' });
-            download(mockBlob, `${selectedTripName}_fotos.zip`, "application/zip");
+            downloadFile(mockZipContent, `${selectedTripName}_fotos.zip`, "application/zip");
             showMessage('Descarga de fotos simulada con éxito.', 'success');
         });
 
