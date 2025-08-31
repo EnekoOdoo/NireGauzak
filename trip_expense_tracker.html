@@ -13,6 +13,12 @@
         .modal {
             background-color: rgba(0, 0, 0, 0.5);
         }
+        .btn-disabled {
+            background-color: #d1d5db;
+            color: #6b7280;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 flex flex-col items-center">
@@ -21,9 +27,12 @@
     <div id="loading-message" class="text-gray-500 font-semibold mt-8">
         Cargando...
     </div>
+    
+    <!-- Mensaje de la App (siempre visible) -->
+    <div id="app-message" class="text-sm text-center font-medium p-2 rounded-md transition-all duration-300 w-full max-w-lg"></div>
 
     <!-- Contenedor Principal de la App -->
-    <div id="app-container" class="hidden w-full max-w-lg bg-white rounded-xl shadow-lg p-6 space-y-6">
+    <div id="app-container" class="hidden w-full max-w-lg bg-white rounded-xl shadow-lg p-6 space-y-6 mt-4">
         <h1 class="text-2xl font-bold text-gray-800 text-center">Gestión de Gastos</h1>
         <div class="flex justify-between items-center text-sm text-gray-500">
             <p id="user-info"></p>
@@ -146,13 +155,10 @@
                 </p>
             </div>
         </div>
-
-        <!-- Mensaje de la App -->
-        <div id="app-message" class="text-sm text-center font-medium p-2 rounded-md transition-all duration-300"></div>
     </div>
     
     <!-- Contenedor de Autenticación -->
-    <div id="auth-container" class="w-full max-w-sm bg-white rounded-xl shadow-lg p-6 space-y-6">
+    <div id="auth-container" class="w-full max-w-sm bg-white rounded-xl shadow-lg p-6 space-y-6 mt-4">
         <h1 class="text-2xl font-bold text-gray-800 text-center">Accede a tus Gastos</h1>
         <p class="text-sm text-gray-500 text-center">Regístrate o inicia sesión para acceder a tu cuenta personal.</p>
 
@@ -312,6 +318,8 @@
 
         // Eventos de autenticación
         signupBtn.addEventListener('click', async () => {
+            signupBtn.classList.add('btn-disabled');
+            signinBtn.classList.add('btn-disabled');
             try {
                 const email = authEmailInput.value;
                 const password = authPasswordInput.value;
@@ -320,10 +328,15 @@
             } catch (error) {
                 console.error("Error al registrarse:", error);
                 showMessage('Error al crear la cuenta. Inténtalo de nuevo.', 'error');
+            } finally {
+                signupBtn.classList.remove('btn-disabled');
+                signinBtn.classList.remove('btn-disabled');
             }
         });
 
         signinBtn.addEventListener('click', async () => {
+            signupBtn.classList.add('btn-disabled');
+            signinBtn.classList.add('btn-disabled');
             try {
                 const email = authEmailInput.value;
                 const password = authPasswordInput.value;
@@ -332,6 +345,9 @@
             } catch (error) {
                 console.error("Error al iniciar sesión:", error);
                 showMessage('Error al iniciar sesión. Comprueba tus datos.', 'error');
+            } finally {
+                signupBtn.classList.remove('btn-disabled');
+                signinBtn.classList.remove('btn-disabled');
             }
         });
 
@@ -425,6 +441,7 @@
             selectedTripId = null;
             editingExpenseId = null;
             expenseForm.reset();
+            removeImageButton.click();
             submitExpenseBtn.textContent = 'Guardar Gasto';
             reportOptions.classList.add('hidden');
         });
@@ -689,7 +706,7 @@
         // Función para mostrar mensajes de la app
         function showMessage(message, type) {
             appMessage.textContent = message;
-            appMessage.className = 'text-sm text-center font-medium p-2 rounded-md transition-all duration-300';
+            appMessage.className = 'text-sm text-center font-medium p-2 rounded-md transition-all duration-300 w-full max-w-lg';
             if (type === 'success') {
                 appMessage.classList.add('bg-green-100', 'text-green-700');
             } else if (type === 'error') {
