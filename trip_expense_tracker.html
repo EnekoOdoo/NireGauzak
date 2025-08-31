@@ -257,30 +257,31 @@
 
         let uploadedFile = null;
 
-        // Listener del estado de autenticación
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // El usuario ha iniciado sesión
-                userId = user.uid;
-                authReady = true;
-                userInfo.textContent = `ID de Usuario: ${userId.substring(0, 8)}...`;
-                logoutBtn.classList.remove('hidden');
-                loadingMessage.style.display = 'none';
-                appContainer.classList.remove('hidden');
-                authContainer.classList.add('hidden');
-                setupTripsListener();
-            } else {
-                // El usuario ha cerrado sesión o no ha iniciado sesión
-                userId = null;
-                authReady = false;
-                logoutBtn.classList.add('hidden');
-                loadingMessage.style.display = 'none';
-                appContainer.classList.add('hidden');
-                authContainer.classList.remove('hidden');
-                if (unsubscribeTrips) unsubscribeTrips();
-                if (unsubscribeExpenses) unsubscribeExpenses();
-            }
-        });
+        // Gestor de autenticación
+        function setupAuthListener() {
+            onAuthStateChanged(auth, (user) => {
+                loadingMessage.style.display = 'none'; // Ocultar el mensaje de carga en cualquier caso
+                if (user) {
+                    // El usuario ha iniciado sesión
+                    userId = user.uid;
+                    authReady = true;
+                    userInfo.textContent = `ID de Usuario: ${user.email}`; // Mostrar email en lugar del UID
+                    logoutBtn.classList.remove('hidden');
+                    appContainer.classList.remove('hidden');
+                    authContainer.classList.add('hidden');
+                    setupTripsListener();
+                } else {
+                    // El usuario ha cerrado sesión o no ha iniciado sesión
+                    userId = null;
+                    authReady = false;
+                    logoutBtn.classList.add('hidden');
+                    appContainer.classList.add('hidden');
+                    authContainer.classList.remove('hidden');
+                    if (unsubscribeTrips) unsubscribeTrips();
+                    if (unsubscribeExpenses) unsubscribeExpenses();
+                }
+            });
+        }
 
         // Eventos de autenticación
         signupBtn.addEventListener('click', async () => {
@@ -654,6 +655,9 @@
                 appMessage.classList.remove('bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700', 'bg-yellow-100', 'text-yellow-700');
             }, 3000);
         }
+
+        // Iniciar la aplicación al cargar la página
+        window.onload = setupAuthListener;
     </script>
 </body>
 </html>
