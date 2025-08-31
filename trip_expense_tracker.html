@@ -190,17 +190,13 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 
         // Configuración de la base de datos
         setLogLevel('Debug');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+        let app, db, auth;
         let userId = null;
         let authReady = false;
         let unsubscribeTrips = null;
@@ -210,6 +206,11 @@
         let selectedTripStatus = null;
         let editingExpenseId = null;
         let allExpenses = []; // Variable para almacenar los gastos para la exportación
+
+        // Variables de entorno de la aplicación
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         // Elementos de la UI
         const loadingMessage = document.getElementById('loading-message');
@@ -257,29 +258,56 @@
         let uploadedFile = null;
 
         // Gestor de autenticación
-        function setupAuthListener() {
-            loadingMessage.style.display = 'none';
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    // El usuario ha iniciado sesión
-                    userId = user.uid;
-                    authReady = true;
-                    userInfo.textContent = `ID de Usuario: ${user.email}`;
-                    logoutBtn.classList.remove('hidden');
-                    appContainer.classList.remove('hidden');
-                    authContainer.classList.add('hidden');
-                    setupTripsListener();
-                } else {
-                    // El usuario ha cerrado sesión o no ha iniciado sesión
-                    userId = null;
-                    authReady = false;
-                    logoutBtn.classList.add('hidden');
-                    appContainer.classList.add('hidden');
-                    authContainer.classList.remove('hidden');
-                    if (unsubscribeTrips) unsubscribeTrips();
-                    if (unsubscribeExpenses) unsubscribeExpenses();
-                }
-            });
+        async function setupFirebase() {
+            try {
+                console.log("Iniciando configuración de Firebase...");
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                console.log("Firebase inicializado. Esperando el estado de autenticación...");
+
+                // Espera a que el estado de autenticación cambie
+                const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                    unsubscribe();
+                    if (!user && initialAuthToken) {
+                         try {
+                             await signInWithCustomToken(auth, initialAuthToken);
+                             console.log("Inicio de sesión con token personalizado exitoso.");
+                         } catch (error) {
+                             console.error("Error al iniciar sesión con token personalizado:", error);
+                             await signInAnonymously(auth);
+                             console.log("Inicio de sesión anónimo en su lugar.");
+                         }
+                    } else if (!user) {
+                       await signInAnonymously(auth);
+                       console.log("Inicio de sesión anónimo.");
+                    }
+                    
+                    loadingMessage.style.display = 'none';
+                    if (auth.currentUser) {
+                        userId = auth.currentUser.uid;
+                        authReady = true;
+                        userInfo.textContent = `ID de Usuario: ${auth.currentUser.email || auth.currentUser.uid}`;
+                        logoutBtn.classList.remove('hidden');
+                        appContainer.classList.remove('hidden');
+                        authContainer.classList.add('hidden');
+                        setupTripsListener();
+                    } else {
+                        userId = null;
+                        authReady = false;
+                        logoutBtn.classList.add('hidden');
+                        appContainer.classList.add('hidden');
+                        authContainer.classList.remove('hidden');
+                        if (unsubscribeTrips) unsubscribeTrips();
+                        if (unsubscribeExpenses) unsubscribeExpenses();
+                    }
+                });
+
+            } catch (error) {
+                loadingMessage.style.display = 'none';
+                console.error("Error al inicializar la aplicación:", error);
+                showMessage('Error crítico: No se pudo inicializar la aplicación. Por favor, revisa la configuración.', 'error');
+            }
         }
 
         // Eventos de autenticación
@@ -333,6 +361,10 @@
 
         // Listener en tiempo real para la lista de viajes
         function setupTripsListener() {
+            if (!authReady) {
+                console.log("Autenticación no lista, no se puede configurar el listener de viajes.");
+                return;
+            }
             if (unsubscribeTrips) unsubscribeTrips();
             const q = query(collection(db, `artifacts/${appId}/users/${userId}/viajes`));
             unsubscribeTrips = onSnapshot(q, (querySnapshot) => {
@@ -456,7 +488,11 @@
 
         // Listener en tiempo real para los gastos del viaje seleccionado
         function setupExpensesListener() {
-            if (unsubscribeExpenses) unsubscribeTrips();
+            if (!authReady || !selectedTripId) {
+                console.log("Autenticación o viaje no seleccionados, no se puede configurar el listener de gastos.");
+                return;
+            }
+            if (unsubscribeExpenses) unsubscribeExpenses();
             const q = query(collection(db, `artifacts/${appId}/users/${userId}/viajes/${selectedTripId}/gastos`));
             unsubscribeExpenses = onSnapshot(q, (querySnapshot) => {
                 allExpenses = [];
@@ -668,7 +704,7 @@
         }
 
         // Iniciar la aplicación al cargar la página
-        window.onload = setupAuthListener;
+        window.onload = setupFirebase;
     </script>
 </body>
 </html>
