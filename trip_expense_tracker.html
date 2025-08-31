@@ -152,7 +152,7 @@
     </div>
     
     <!-- Contenedor de Autenticación -->
-    <div id="auth-container" class="w-full max-w-sm bg-white rounded-xl shadow-lg p-6 space-y-6 hidden">
+    <div id="auth-container" class="w-full max-w-sm bg-white rounded-xl shadow-lg p-6 space-y-6">
         <h1 class="text-2xl font-bold text-gray-800 text-center">Accede a tus Gastos</h1>
         <p class="text-sm text-gray-500 text-center">Regístrate o inicia sesión para acceder a tu cuenta personal.</p>
 
@@ -248,7 +248,7 @@
         const reportOptions = document.getElementById('report-options');
         const exportCsvBtn = document.getElementById('export-csv-btn');
         const downloadZipBtn = document.getElementById('download-zip-btn');
-        const emailReportBtn = document = document.getElementById('email-report-btn');
+        const emailReportBtn = document.getElementById('email-report-btn');
 
         const authEmailInput = document.getElementById('auth-email');
         const authPasswordInput = document.getElementById('auth-password');
@@ -259,8 +259,8 @@
 
         // Gestor de autenticación
         function setupAuthListener() {
+            loadingMessage.style.display = 'none';
             onAuthStateChanged(auth, (user) => {
-                loadingMessage.style.display = 'none';
                 if (user) {
                     // El usuario ha iniciado sesión
                     userId = user.uid;
@@ -452,11 +452,12 @@
             };
 
             confirmYesBtn.addEventListener('click', handleYes);
+            confirmNoBtn.addEventListener('click', handleNo);
         }
 
         // Listener en tiempo real para los gastos del viaje seleccionado
         function setupExpensesListener() {
-            if (unsubscribeExpenses) unsubscribeExpenses();
+            if (unsubscribeExpenses) unsubscribeTrips();
             const q = query(collection(db, `artifacts/${appId}/users/${userId}/viajes/${selectedTripId}/gastos`));
             unsubscribeExpenses = onSnapshot(q, (querySnapshot) => {
                 allExpenses = [];
